@@ -1,0 +1,47 @@
+# Python caches
+__pycache__/
+*.py[cod]
+
+# IDE and local agent output
+/.idea/
+/.codex/better-harness/
+
+# Bundled runtimes, models, and external source snapshots
+/SEM_Grain_Tool_Portable/
+/cellpose_cache/
+/cellpose_dataset/
+/uni-aims-source/
+/_skill_sources/
+/%SystemDrive%/
+
+# Generated analysis and geometry outputs
+/cellpose_results_pretrained/
+/classical_segmentation_results/
+/coordinate_shape_outputs/
+/diameter_sweep_results/
+/dxf_polygon_outputs/
+/dxf_polygon_outputs_hull/
+/dxf_polygon_outputs_split_hull/
+/od_metaldam_cellpose_test/
+/particle_analysis/
+/sintered_agglomerate_outputs/
+/具体法/
+/泰森多边形/
+
+# PyInstaller build products; keep source entry points and spec files
+/pyinstaller_packaging/build*/
+/pyinstaller_packaging/dist*/
+/pyinstaller_packaging/__pycache__/
+
+# Large inputs and generated binary artifacts
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.dxf
+*.tar
+*.pdf
+*.log
+*.png1

@@ -1,0 +1,21 @@
+{
+  "canvas_width": 1280,
+  "canvas_height": 640,
+  "polygon_width": 54,
+  "polygon_height": 44,
+  "mode": "both",
+  "target_polygon_area_ratio": 0.42,
+  "wall_thickness": 5,
+  "outline_thickness": 3,
+  "random_seed": 20260603,
+  "position_jitter": 0.36,
+  "shape_jitter": 0.04,
+  "background_color_bgr": [77, 79, 174],
+  "polygon_color_bgr": [154, 191, 213],
+  "wall_color_bgr": [66, 66, 160],
+  "outline_color_bgr": [48, 49, 92],
+  "output_islands": "voronoi_islands.png",
+  "output_cells": "voronoi_cells.png",
+  "output_preview": "voronoi_preview.png",
+  "note": "Saved parameters for the approved Voronoi preview style."
+}
