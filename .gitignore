@@ -32,6 +32,9 @@ __pycache__/
 /pyinstaller_packaging/build*/
 /pyinstaller_packaging/dist*/
 /pyinstaller_packaging/__pycache__/
+/build/
+/dist/
+/relocation_validation_*/
 
 # Large inputs and generated binary artifacts
 *.tif

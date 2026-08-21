@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -319,6 +320,29 @@ def write_dxf(path: Path, shapes: list[np.ndarray | CircleShape], height: int, s
     doc.saveas(path)
 
 
+def write_dxf_metadata(
+    path: Path,
+    image_path: Path,
+    dxf_path: Path,
+    width: int,
+    height: int,
+    shape_count: int,
+    scale: float,
+) -> None:
+    metadata = {
+        "source_image": str(image_path),
+        "dxf_path": str(dxf_path),
+        "dxf_unit": "mm",
+        "dxf_scale_mm_per_pixel": float(scale),
+        "image_width_px": int(width),
+        "image_height_px": int(height),
+        "geometry_width_mm": float(width) * float(scale),
+        "geometry_height_mm": float(height) * float(scale),
+        "shape_count": int(shape_count),
+    }
+    path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample", default="1_i313")
@@ -340,6 +364,8 @@ def main() -> None:
     parser.add_argument("--resolve-damping", type=float, default=0.25)
     parser.add_argument("--max-center-shift-ratio", type=float, default=1.0)
     args = parser.parse_args()
+    if not math.isfinite(args.dxf_scale) or args.dxf_scale <= 0:
+        parser.error("--dxf-scale must be a positive finite number")
 
     particles_csv = Path(args.particles_csv) if args.particles_csv else ROOT / "particle_analysis" / f"{args.sample}_particles.csv"
     image_path = Path(args.image) if args.image else ROOT / "cellpose_dataset" / f"{args.sample}_sem.png"
@@ -404,11 +430,22 @@ def main() -> None:
     prefix = output_dir / f"{args.sample}_{args.mode}_{suffix}_a{args.area_scale:g}_gap{args.circle_gap:g}_area_from_centers"
     draw_outputs(image, shapes, centers, prefix)
     write_shape_csv(prefix.with_name(prefix.name + "_data.csv"), particles, shapes, args.area_scale)
-    write_dxf(prefix.with_name(prefix.name + ".dxf"), shapes, height, args.dxf_scale)
+    dxf_path = prefix.with_name(prefix.name + ".dxf")
+    write_dxf(dxf_path, shapes, height, args.dxf_scale)
+    write_dxf_metadata(
+        prefix.with_name(prefix.name + "_dxf_metadata.json"),
+        image_path,
+        dxf_path,
+        width,
+        height,
+        len(shapes),
+        args.dxf_scale,
+    )
 
     print(f"particles={len(particles)}")
     print(f"mode={args.mode}")
     print(f"area_scale={args.area_scale}")
+    print(f"dxf_unit=mm, dxf_scale_mm_per_pixel={args.dxf_scale:.12g}")
     if overlap_before is not None:
         print(f"overlaps_before={overlap_before[0]}, max_overlap_before={overlap_before[1]:.3f}")
     if overlap_after is not None:
