@@ -25,6 +25,8 @@ RESOURCE_PATHS = {
     "tcl_dll": Path("_internal/tcl86t.dll"),
     "tk_dll": Path("_internal/tk86t.dll"),
     "tkinter_pyd": Path("_internal/_tkinter.pyd"),
+    "web_index": Path("_internal/web_static/index.html"),
+    "device_probe": Path("_internal/device_probe.py"),
 }
 STEP_TIMEOUTS = {
     "resource_manifest": 120,
@@ -93,7 +95,13 @@ def terminate_process_tree(process: subprocess.Popen[str]) -> None:
         process.kill()
 
 
-def process_step(name: str, command: list[str], cwd: Path, timeout: int) -> dict[str, Any]:
+def process_step(
+    name: str,
+    command: list[str],
+    cwd: Path,
+    timeout: int,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
     started = time.monotonic()
     step: dict[str, Any] = {
         "name": name, "status": "running", "started_at": now_iso(),
@@ -107,6 +115,7 @@ def process_step(name: str, command: list[str], cwd: Path, timeout: int) -> dict
             command, cwd=cwd, text=True, encoding="utf-8", errors="replace",
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+            env=env,
         )
         step["pid"] = process.pid
         try:
@@ -205,7 +214,14 @@ def skipped_step(name: str, timeout: int, reason: str) -> dict[str, Any]:
     }
 
 
-def validate_resources(build_dir: Path, version_manifest: Path, fixtures: dict[str, Path]) -> dict[str, Any]:
+def validate_resources(
+    build_dir: Path,
+    version_manifest: Path,
+    fixtures: dict[str, Path],
+    *,
+    app_name: str = "SEMGrainTool",
+    expect_cuda: bool = False,
+) -> dict[str, Any]:
     started = time.monotonic()
     step = internal_step("packaged_resource_manifest", STEP_TIMEOUTS["resource_manifest"])
     version_data: dict[str, Any] = {}
@@ -214,13 +230,17 @@ def validate_resources(build_dir: Path, version_manifest: Path, fixtures: dict[s
             version_data = json.loads(version_manifest.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             step["stdout"] = f"Version manifest read failed: {exc}"
-    exe_path = build_dir / "SEMGrainTool.exe"
+    exe_path = build_dir / f"{app_name}.exe"
     step["outputs"].append(file_info(exe_path))
     add_check(step, "executable_exists", exe_path.is_file(), str(exe_path.resolve()))
     step["outputs"].append(file_info(version_manifest))
     add_check(step, "version_manifest_exists", version_manifest.is_file(), str(version_manifest.resolve()))
-    add_check(step, "torch_is_cpu", version_data.get("torch_cuda") is None, version_data.get("torch_cuda"))
-    add_check(step, "cuda_unavailable", version_data.get("cuda_available") is False, version_data.get("cuda_available"))
+    if expect_cuda:
+        add_check(step, "torch_has_cuda_runtime", bool(version_data.get("torch_cuda")), version_data.get("torch_cuda"))
+        add_check(step, "cuda_available_on_build_host", version_data.get("cuda_available") is True, version_data.get("cuda_available"))
+    else:
+        add_check(step, "torch_is_cpu", version_data.get("torch_cuda") is None, version_data.get("torch_cuda"))
+        add_check(step, "cuda_unavailable", version_data.get("cuda_available") is False, version_data.get("cuda_available"))
     add_check(step, "torch_version_present", bool(version_data.get("torch_version")), version_data.get("torch_version"))
     add_check(step, "cellpose_version_present", bool(version_data.get("cellpose_version")), version_data.get("cellpose_version"))
 
@@ -235,7 +255,12 @@ def validate_resources(build_dir: Path, version_manifest: Path, fixtures: dict[s
     torch_lib = build_dir / "_internal" / "torch" / "lib"
     cuda_markers = ("torch_cuda", "c10_cuda", "cudnn", "cublas", "cusparse", "cufft")
     cuda_files = [str(path.resolve()) for path in torch_lib.glob("*.dll") if any(marker in path.name.lower() for marker in cuda_markers)]
-    add_check(step, "no_cuda_runtime_dlls", not cuda_files, cuda_files)
+    add_check(
+        step,
+        "cuda_runtime_dll_policy",
+        bool(cuda_files) if expect_cuda else not cuda_files,
+        cuda_files,
+    )
     for fixture_name, path in fixtures.items():
         add_check(step, f"fixture_{fixture_name}", path.is_file(), file_info(path, with_hash=False))
     finish_internal(step, started)
@@ -356,10 +381,12 @@ def run_acceptance(
     record_path: Path | None = None,
     initial_steps: list[dict[str, Any]] | None = None,
     fault_delete_resource: str | None = None,
+    app_name: str = "SEMGrainTool",
+    expect_cuda: bool = False,
 ) -> tuple[int, Path]:
     build_dir = build_dir.resolve()
-    exe_path = build_dir / "SEMGrainTool.exe"
-    version_manifest = build_dir.parent / "SEMGrainTool_versions.json"
+    exe_path = build_dir / f"{app_name}.exe"
+    version_manifest = build_dir.parent / f"{app_name}_versions.json"
     acceptance_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
     record_path = (record_path or build_dir.parent / f"SEMGrainTool_acceptance_{acceptance_id}.json").resolve()
     fixtures = {
@@ -409,7 +436,13 @@ def run_acceptance(
             data["fault_injection"]["deleted"] = True
             record.write()
 
-        manifest_step = validate_resources(build_dir, version_manifest, fixtures)
+        manifest_step = validate_resources(
+            build_dir,
+            version_manifest,
+            fixtures,
+            app_name=app_name,
+            expect_cuda=expect_cuda,
+        )
         record.append(manifest_step)
         if manifest_step["status"] != "passed":
             reason = "packaged resource manifest failed"
@@ -503,6 +536,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--build-dir", type=Path, default=DEFAULT_BUILD_DIR)
     parser.add_argument("--record", type=Path)
     parser.add_argument("--fault-delete-resource", choices=sorted(RESOURCE_PATHS))
+    parser.add_argument("--app-name", default="SEMGrainTool")
+    parser.add_argument("--expect-cuda", action="store_true")
     return parser.parse_args()
 
 
@@ -511,6 +546,8 @@ def main() -> int:
     exit_code, record_path = run_acceptance(
         build_dir=args.build_dir, record_path=args.record,
         fault_delete_resource=args.fault_delete_resource,
+        app_name=args.app_name,
+        expect_cuda=args.expect_cuda,
     )
     print(f"acceptance_record={record_path}")
     print(f"acceptance_exit_code={exit_code}")

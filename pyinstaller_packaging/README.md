@@ -1,5 +1,39 @@
 # PyInstaller CPU packaging
 
+## Browser-based application
+
+`SEMGrainTool.exe` now starts an HTTP service bound only to `127.0.0.1`, selects an
+available local port, and opens the default browser. The browser UI provides image
+upload, automatic and manual scale calibration, Cellpose detection, mask correction,
+particle analysis, circle/DXF export, logs, cancellation, and output downloads. Use
+the “关闭软件” button in the page to terminate the service and any active helper tree.
+
+No Flask/FastAPI dependency is required; the server uses the Python standard library.
+The existing packaged helper mode remains available for acceptance and subprocesses.
+
+The interface probes Torch/CUDA in an isolated helper after the local page starts.
+CUDA runtime or driver failures cannot prevent the web server from opening. CUDA
+Cellpose failures trigger one automatic CPU retry. GPUs below 4 GB VRAM remain in CPU
+compatibility mode to avoid predictable CPSAM out-of-memory failures.
+
+## CUDA 11.8 build
+
+The GPU build uses a fixed CUDA environment and still retains CPU execution support:
+
+```powershell
+E:\conda_envs\sem_sam_env\python.exe pyinstaller_packaging\build_gpu_release.py
+```
+
+Outputs:
+
+- `dist\SEMGrainToolGPU\SEMGrainToolGPU.exe`
+- `dist\SEMGrainToolGPU_versions.json`
+- `dist\SEMGrainToolGPU_acceptance_<timestamp>.json`
+
+The target computer does not need Python, Torch, Cellpose, or a CUDA Toolkit. GPU mode
+requires a compatible NVIDIA driver and at least 4 GB detected VRAM; otherwise the same
+release runs Cellpose on CPU. Copy the complete `SEMGrainToolGPU` directory.
+
 ## Final-change validation
 
 For changes to `ProcessController`, background task lifecycle handling, cancellation,
@@ -15,6 +49,12 @@ of a process tree, GUI button restoration after timeout, and process-tree cleanu
 the window closes. It also covers manual scale calculation, physical DXF scaling, mask
 edit operations, and preservation of the automatic-mask backup. It does not validate
 packaged resources or helper outputs.
+
+Run the local HTTP/upload/calibration/editor checks with:
+
+```powershell
+.\SEM_Grain_Tool_Portable\env\python.exe pyinstaller_packaging\test_sem_grain_web_app.py
+```
 
 ## GUI correction workflow
 

@@ -22,16 +22,23 @@ ROUTE_FILES = {
     "lifecycle": [
         PACKAGING_DIR / "sem_grain_app_frozen.py",
         PACKAGING_DIR / "test_sem_grain_app_frozen.py",
+        PACKAGING_DIR / "sem_grain_web_app.py",
+        PACKAGING_DIR / "test_sem_grain_web_app.py",
         PACKAGING_DIR / "run_final_validation.py",
     ],
     "packaging": [
         PROJECT_ROOT / "check_torch_env.py",
+        PROJECT_ROOT / "device_probe.py",
         PACKAGING_DIR / "README.md",
+        PACKAGING_DIR / "sem_grain_web_app.py",
+        PACKAGING_DIR / "web_static" / "index.html",
         PACKAGING_DIR / "SEMGrainTool.spec",
+        PACKAGING_DIR / "SEMGrainToolGPU.spec",
         PACKAGING_DIR / "SEMGrainToolConsole.spec",
         PACKAGING_DIR / "spec_common.py",
         PACKAGING_DIR / "accept_sem_grain_build.py",
         PACKAGING_DIR / "build_cpu_release.py",
+        PACKAGING_DIR / "build_gpu_release.py",
         PACKAGING_DIR / "run_final_validation.py",
     ],
 }

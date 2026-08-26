@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SEM Grain Tool</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1018;
+      --panel: #121a26;
+      --panel-2: #182333;
+      --line: #28384c;
+      --text: #edf4ff;
+      --muted: #91a2b8;
+      --cyan: #4ad8cf;
+      --cyan-dark: #123c40;
+      --yellow: #ffcf5a;
+      --red: #ff6b6b;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 78% 0%, rgba(42, 103, 119, .22), transparent 36rem),
+        var(--bg);
+      color: var(--text);
+      font: 14px/1.5 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    }
+    header {
+      height: 62px;
+      padding: 0 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      background: rgba(11, 16, 24, .82);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .mark {
+      width: 32px; height: 32px; border-radius: 10px;
+      background: linear-gradient(145deg, var(--cyan), #4387e6);
+      box-shadow: 0 0 28px rgba(74, 216, 207, .28);
+      position: relative;
+    }
+    .mark::after {
+      content: ""; position: absolute; inset: 8px; border: 2px solid #071018;
+      border-radius: 50%; box-shadow: 7px 0 0 -3px #071018, -5px 7px 0 -3px #071018;
+    }
+    h1 { margin: 0; font-size: 17px; letter-spacing: .02em; }
+    .sub { color: var(--muted); font-size: 12px; }
+    main {
+      max-width: 1700px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr) 310px;
+      gap: 16px;
+    }
+    .panel {
+      background: linear-gradient(180deg, rgba(24,35,51,.92), rgba(16,24,36,.94));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 15px 45px rgba(0,0,0,.18);
+    }
+    .controls, .results { padding: 16px; align-self: start; }
+    .section { padding: 0 0 16px; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+    .section:last-child { border: 0; margin: 0; padding: 0; }
+    .section-title {
+      margin-bottom: 10px; color: var(--muted); font-size: 12px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    }
+    .drop-zone {
+      padding: 20px 14px; border: 1px dashed #49627d; border-radius: 12px;
+      background: rgba(17,27,40,.7); text-align: center; cursor: pointer;
+      transition: .18s ease;
+    }
+    .drop-zone:hover, .drop-zone.drag { border-color: var(--cyan); background: rgba(31,76,79,.35); }
+    .drop-zone strong { display: block; margin-bottom: 3px; }
+    input[type=file] { display: none; }
+    label { color: var(--muted); font-size: 12px; }
+    .field { margin: 9px 0; }
+    input[type=number] {
+      width: 100%; margin-top: 4px; padding: 9px 10px; color: var(--text);
+      background: #0d1520; border: 1px solid #304258; border-radius: 8px; outline: none;
+    }
+    input[type=number]:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(74,216,207,.1); }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    button {
+      border: 1px solid #344a62; border-radius: 9px; padding: 9px 11px;
+      color: var(--text); background: #1a293a; cursor: pointer; font: inherit;
+      transition: .15s ease;
+    }
+    button:hover:not(:disabled) { border-color: #5d7d9f; background: #213449; transform: translateY(-1px); }
+    button:disabled { opacity: .42; cursor: not-allowed; }
+    button.primary { color: #061515; background: var(--cyan); border-color: var(--cyan); font-weight: 700; }
+    button.primary:hover:not(:disabled) { background: #70e6df; }
+    button.warn { color: var(--yellow); }
+    button.danger { color: #ffadad; }
+    button.active { color: #071416; background: var(--yellow); border-color: var(--yellow); }
+    .full { width: 100%; margin-top: 8px; }
+    .check { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: var(--text); }
+    .workspace { min-width: 0; overflow: hidden; }
+    .statusbar {
+      min-height: 52px; padding: 11px 14px; display: flex; align-items: center;
+      justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line);
+    }
+    #status { font-weight: 600; }
+    #scale-readout { color: var(--cyan); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .busy-dot {
+      display: none; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan);
+      box-shadow: 0 0 0 0 rgba(74,216,207,.5); animation: pulse 1.3s infinite;
+    }
+    .busy .busy-dot { display: inline-block; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(74,216,207,0); } }
+    .viewer {
+      min-height: 520px; height: calc(100vh - 152px); padding: 14px;
+      display: grid; place-items: center; overflow: auto;
+      background-image: linear-gradient(45deg,#101925 25%,transparent 25%),linear-gradient(-45deg,#101925 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#101925 75%),linear-gradient(-45deg,transparent 75%,#101925 75%);
+      background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0;
+    }
+    .image-wrap { position: relative; display: inline-block; max-width: 100%; }
+    #preview { display: block; max-width: 100%; max-height: calc(100vh - 190px); object-fit: contain; }
+    #draw-layer { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+    .empty { color: #64758a; text-align: center; }
+    .empty b { display: block; color: #8497ad; font-size: 36px; margin-bottom: 8px; }
+    .modebar { display: none; padding: 10px; border-top: 1px solid var(--line); gap: 7px; flex-wrap: wrap; }
+    .modebar.visible { display: flex; }
+    .modebar button { flex: 0 0 auto; }
+    .log {
+      height: 210px; overflow: auto; padding: 10px; border: 1px solid var(--line);
+      border-radius: 9px; background: #091019; color: #a9bbcc;
+      font: 11px/1.5 Consolas, monospace; white-space: pre-wrap; word-break: break-all;
+    }
+    .error { color: var(--red); margin: 8px 0; white-space: pre-wrap; }
+    .file-list { max-height: 330px; overflow: auto; }
+    .file {
+      display: block; padding: 8px 3px; border-bottom: 1px solid rgba(40,56,76,.7);
+      color: #b9e8ff; text-decoration: none; word-break: break-all; font-size: 12px;
+    }
+    .file:hover { color: var(--cyan); }
+    .pill { display: inline-block; margin-right: 5px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 7px; }
+    .device-card {
+      margin: 9px 0; padding: 9px 10px; border: 1px solid var(--line);
+      border-radius: 9px; background: rgba(9,16,25,.65); color: var(--muted);
+      font-size: 12px; white-space: pre-wrap;
+    }
+    .device-card.cuda { border-color: #28736f; color: #9eeae5; }
+    .device-card.warning { border-color: #7b6530; color: var(--yellow); }
+    #manual-note { display: none; padding: 8px; margin-top: 8px; border-radius: 8px; background: rgba(255,207,90,.1); color: var(--yellow); }
+    @media (max-width: 1180px) {
+      main { grid-template-columns: 300px minmax(0,1fr); }
+      .results { grid-column: 1 / -1; }
+      .file-list { max-height: 180px; }
+    }
+    @media (max-width: 760px) {
+      header { padding: 0 14px; }
+      main { display: block; padding: 10px; }
+      .panel { margin-bottom: 10px; }
+      .viewer { height: auto; min-height: 340px; }
+      #preview { max-height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="mark"></div><div><h1>SEM Grain Tool</h1><div class="sub">本地浏览器工作台 · 数据仅在本机处理</div></div></div>
+    <button id="shutdown" class="danger">关闭软件</button>
+  </header>
+
+  <main>
+    <aside class="panel controls">
+      <section class="section">
+        <div class="section-title">1 · 输入图像</div>
+        <label class="drop-zone" id="drop-zone" for="file-input">
+          <strong>选择或拖入 SEM 图像</strong>
+          <span id="input-name">TIF / PNG / JPG / BMP，最大 512 MB</span>
+        </label>
+        <input id="file-input" type="file" accept=".tif,.tiff,.png,.jpg,.jpeg,.bmp,image/*">
+      </section>
+
+      <section class="section">
+        <div class="section-title">2 · 比例尺标定</div>
+        <div class="field"><label>比例尺实际长度（μm）<input id="scale-um" type="number" value="100" min="0.000001" step="any"></label></div>
+        <div class="row">
+          <button id="auto-scale">自动检测</button>
+          <button id="manual-scale">人工两点</button>
+        </div>
+        <div id="manual-note">请在图像上依次点击比例尺的两个端点。</div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">3 · 晶粒识别</div>
+        <div id="device-card" class="device-card">正在检测GPU、驱动和运行环境…</div>
+        <label class="check"><input id="use-gpu" type="checkbox" checked> 优先使用 GPU，失败时自动回退 CPU</label>
+        <button id="detect" class="primary full">开始识别晶粒</button>
+        <button id="edit-mask" class="full">人工校正晶粒</button>
+        <div class="hint">识别期间可关闭网页标签，但请勿关闭本地服务。</div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">4 · 圆形与 DXF 导出</div>
+        <div class="row">
+          <div class="field"><label>面积比例<input id="area-scale" type="number" value="0.95" min="0.000001" step="any"></label></div>
+          <div class="field"><label>圆间距（px）<input id="circle-gap" type="number" value="3" min="0" step="any"></label></div>
+        </div>
+        <button id="export" class="primary full">输出间隔圆形图和 DXF</button>
+      </section>
+
+      <button id="cancel" class="warn full">取消当前任务</button>
+    </aside>
+
+    <section class="panel workspace" id="workspace">
+      <div class="statusbar">
+        <div><span class="busy-dot"></span> <span id="status">正在连接本地服务…</span></div>
+        <div id="scale-readout">未标定</div>
+      </div>
+      <div class="viewer" id="viewer">
+        <div class="empty" id="empty"><b>⌁</b>选择图像后在这里预览</div>
+        <div class="image-wrap" id="image-wrap" hidden>
+          <img id="preview" alt="分析结果预览">
+          <canvas id="draw-layer"></canvas>
+        </div>
+      </div>
+      <div class="modebar" id="modebar">
+        <button data-mode="select" class="active">选择</button>
+        <button data-mode="add">补画</button>
+        <button data-mode="split">切割</button>
+        <button id="finish-draw">完成绘制</button>
+        <button id="delete-mask">删除</button>
+        <button id="merge-mask">合并</button>
+        <button id="undo-mask">撤销</button>
+        <button id="redo-mask">重做</button>
+        <span style="flex:1"></span>
+        <button id="discard-mask" class="danger">放弃校正</button>
+        <button id="save-mask" class="primary">保存校正</button>
+      </div>
+    </section>
+
+    <aside class="panel results">
+      <section class="section">
+        <div class="section-title">运行日志</div>
+        <div id="error" class="error"></div>
+        <div id="log" class="log"></div>
+      </section>
+      <section class="section">
+        <div class="section-title">本次输出文件</div>
+        <div id="files" class="file-list"><span class="hint">完成分析后可在此预览或下载。</span></div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const TOKEN = "__SEM_TOKEN__";
+    const $ = id => document.getElementById(id);
+    const state = { data: null, manual: false, manualPoints: [], editorMode: "select", drawPoints: [], posting: false, gpuChoiceInitialized: false };
+
+    async function api(path, body = {}) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-SEM-Token": TOKEN},
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `请求失败 (${response.status})`);
+      return data;
+    }
+
+    async function refresh() {
+      try {
+        const response = await fetch("/api/state", {headers: {"X-SEM-Token": TOKEN}, cache: "no-store"});
+        if (!response.ok) throw new Error("本地服务连接失败");
+        render(await response.json());
+      } catch (error) {
+        $("error").textContent = error.message;
+      }
+    }
+
+    function render(data) {
+      state.data = data;
+      $("workspace").classList.toggle("busy", data.busy);
+      $("status").textContent = data.status;
+      $("input-name").textContent = data.input_name || "TIF / PNG / JPG / BMP，最大 512 MB";
+      $("scale-readout").textContent = data.um_per_px ? `${Number(data.um_per_px).toPrecision(6)} μm/px` : "未标定";
+      $("error").textContent = data.error || "";
+      $("use-gpu").disabled = !data.gpu_available || data.busy;
+      const device = data.device || {};
+      if (device.status !== "checking" && !state.gpuChoiceInitialized) {
+        $("use-gpu").checked = Boolean(data.gpu_available);
+        state.gpuChoiceInitialized = true;
+      } else if (device.status === "fallback") {
+        $("use-gpu").checked = false;
+      }
+      const deviceCard = $("device-card");
+      deviceCard.className = "device-card";
+      if (device.status === "checking") {
+        deviceCard.textContent = "正在检测GPU、驱动和运行环境…";
+      } else if (device.gpu_available) {
+        const memory = device.total_memory_mb ? ` · ${device.total_memory_mb} MB` : "";
+        const capability = device.capability ? ` · CUDA能力 ${device.capability}` : "";
+        deviceCard.textContent = `GPU可用：${device.device_name || "NVIDIA GPU"}${memory}${capability}` +
+          (device.reason ? `\n提示：${device.reason}` : "");
+        deviceCard.classList.add(device.reason ? "warning" : "cuda");
+      } else if (device.cuda_available) {
+        const memory = device.total_memory_mb ? ` · ${device.total_memory_mb} MB` : "";
+        deviceCard.textContent = `检测到GPU：${device.device_name || "NVIDIA GPU"}${memory}\n${device.reason || "当前已使用CPU兼容模式"}`;
+        deviceCard.classList.add("warning");
+      } else {
+        deviceCard.textContent = `CPU兼容模式：${device.reason || "GPU不可用"}`;
+        if (device.status === "fallback") deviceCard.classList.add("warning");
+      }
+
+      const hasImage = Boolean(data.sample);
+      $("auto-scale").disabled = !hasImage || data.busy;
+      $("manual-scale").disabled = !hasImage || data.busy;
+      $("detect").disabled = !hasImage || data.busy;
+      $("edit-mask").disabled = !data.mask_available || data.busy;
+      $("export").disabled = !data.mask_available || !data.um_per_px || data.busy;
+      $("cancel").disabled = !data.busy;
+      $("file-input").disabled = data.busy;
+
+      const shownPreview = state.manual && data.source_url ? data.source_url : data.preview_url;
+      if (shownPreview) {
+        if ($("preview").getAttribute("src") !== shownPreview) $("preview").src = shownPreview;
+        $("image-wrap").hidden = false;
+        $("empty").hidden = true;
+      } else {
+        $("image-wrap").hidden = true;
+        $("empty").hidden = false;
+      }
+
+      const editor = data.editor || {};
+      $("modebar").classList.toggle("visible", Boolean(editor.active));
+      $("undo-mask").disabled = !editor.can_undo || data.busy;
+      $("redo-mask").disabled = !editor.can_redo || data.busy;
+      $("save-mask").disabled = !editor.dirty || data.busy;
+      $("delete-mask").disabled = !editor.active || data.busy;
+      $("merge-mask").disabled = !editor.active || data.busy;
+
+      const log = $("log");
+      const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 45;
+      const nextLog = (data.logs || []).join("\n");
+      if (log.textContent !== nextLog) {
+        log.textContent = nextLog;
+        if (nearBottom) log.scrollTop = log.scrollHeight;
+      }
+      const files = data.outputs || [];
+      $("files").innerHTML = files.length ? files.map(file =>
+        `<a class="file" href="${escapeHtml(file.url)}" target="_blank" download><span class="pill">${escapeHtml(file.group)}</span>${escapeHtml(file.name)}</a>`
+      ).join("") : '<span class="hint">完成分析后可在此预览或下载。</span>';
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[char]);
+    }
+
+    async function act(path, body = {}) {
+      if (state.posting) return;
+      state.posting = true;
+      try { await api(path, body); await refresh(); }
+      catch (error) { $("error").textContent = error.message; }
+      finally { state.posting = false; }
+    }
+
+    async function upload(file) {
+      if (!file) return;
+      $("status").textContent = "正在读取并准备图像…";
+      try {
+        const response = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, {
+          method: "POST", headers: {"X-SEM-Token": TOKEN}, body: file
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "上传失败");
+        state.manual = false; state.manualPoints = []; state.drawPoints = [];
+        await refresh();
+      } catch (error) { $("error").textContent = error.message; }
+    }
+
+    function imagePoint(event) {
+      const image = $("preview");
+      const rect = image.getBoundingClientRect();
+      return [
+        Math.max(0, Math.min(image.naturalWidth - 1, (event.clientX - rect.left) * image.naturalWidth / rect.width)),
+        Math.max(0, Math.min(image.naturalHeight - 1, (event.clientY - rect.top) * image.naturalHeight / rect.height))
+      ];
+    }
+
+    function redrawCanvas() {
+      const canvas = $("draw-layer"), image = $("preview");
+      if (!image.naturalWidth || image.hidden) return;
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      const points = state.manual ? state.manualPoints : state.drawPoints;
+      if (!points.length) return;
+      ctx.strokeStyle = "#ff3c3c"; ctx.fillStyle = "#ffe45c";
+      ctx.lineWidth = Math.max(2, image.naturalWidth / 500);
+      ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]);
+      points.slice(1).forEach(point => ctx.lineTo(point[0], point[1]));
+      ctx.stroke();
+      points.forEach(point => { ctx.beginPath(); ctx.arc(point[0], point[1], Math.max(4, image.naturalWidth / 250), 0, Math.PI * 2); ctx.fill(); });
+    }
+
+    $("file-input").addEventListener("change", event => upload(event.target.files[0]));
+    const drop = $("drop-zone");
+    ["dragenter","dragover"].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.add("drag"); }));
+    ["dragleave","drop"].forEach(name => drop.addEventListener(name, event => { event.preventDefault(); drop.classList.remove("drag"); }));
+    drop.addEventListener("drop", event => upload(event.dataTransfer.files[0]));
+
+    $("auto-scale").onclick = () => act("/api/scale/auto", {scale_um: $("scale-um").value});
+    $("manual-scale").onclick = () => {
+      state.manual = !state.manual; state.manualPoints = []; state.drawPoints = [];
+      $("manual-scale").classList.toggle("active", state.manual);
+      $("manual-note").style.display = state.manual ? "block" : "none";
+      if (state.manual && state.data && state.data.source_url) $("preview").src = state.data.source_url;
+      redrawCanvas();
+    };
+    $("detect").onclick = () => act("/api/detect", {scale_um: $("scale-um").value, use_gpu: $("use-gpu").checked});
+    $("export").onclick = () => act("/api/export", {area_scale: $("area-scale").value, circle_gap: $("circle-gap").value});
+    $("cancel").onclick = () => act("/api/cancel");
+    $("edit-mask").onclick = () => { state.manual = false; state.drawPoints = []; act("/api/editor/start"); };
+
+    $("draw-layer").addEventListener("click", async event => {
+      if (!state.data || state.data.busy) return;
+      const point = imagePoint(event);
+      if (state.manual) {
+        state.manualPoints.push(point); redrawCanvas();
+        if (state.manualPoints.length === 2) {
+          const points = state.manualPoints.slice();
+          state.manual = false; state.manualPoints = [];
+          $("manual-scale").classList.remove("active"); $("manual-note").style.display = "none";
+          redrawCanvas();
+          await act("/api/scale/manual", {scale_um: $("scale-um").value, points});
+        }
+      } else if (state.data.editor && state.data.editor.active) {
+        if (state.editorMode === "select") {
+          await act("/api/editor/select", {x: point[0], y: point[1], additive: event.ctrlKey || event.metaKey});
+        } else {
+          state.drawPoints.push(point); redrawCanvas();
+        }
+      }
+    });
+
+    document.querySelectorAll("[data-mode]").forEach(button => button.onclick = () => {
+      state.editorMode = button.dataset.mode; state.drawPoints = [];
+      document.querySelectorAll("[data-mode]").forEach(item => item.classList.toggle("active", item === button));
+      redrawCanvas();
+    });
+    $("finish-draw").onclick = () => {
+      if (!["add", "split"].includes(state.editorMode)) return $("error").textContent = "请先选择补画或切割模式";
+      const points = state.drawPoints.slice(); state.drawPoints = []; redrawCanvas();
+      act("/api/editor/apply", {operation: state.editorMode, points});
+    };
+    $("delete-mask").onclick = () => act("/api/editor/apply", {operation: "delete"});
+    $("merge-mask").onclick = () => act("/api/editor/apply", {operation: "merge"});
+    $("undo-mask").onclick = () => act("/api/editor/apply", {operation: "undo"});
+    $("redo-mask").onclick = () => act("/api/editor/apply", {operation: "redo"});
+    $("save-mask").onclick = () => act("/api/editor/save");
+    $("discard-mask").onclick = () => { if (confirm("确定放弃未保存的人工校正吗？")) act("/api/editor/discard"); };
+    $("shutdown").onclick = async () => {
+      if (!confirm("确定关闭 SEM Grain Tool 本地服务吗？")) return;
+      try { await api("/api/shutdown"); } catch (_) {}
+      document.body.innerHTML = '<div style="display:grid;place-items:center;height:100vh;color:#91a2b8;font:16px Segoe UI">SEM Grain Tool 已关闭，可以关闭此页面。</div>';
+    };
+    $("preview").addEventListener("load", redrawCanvas);
+    new ResizeObserver(redrawCanvas).observe($("preview"));
+    setInterval(refresh, 1000);
+    refresh();
+  </script>
+</body>
+</html>

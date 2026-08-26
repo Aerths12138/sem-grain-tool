@@ -15,10 +15,23 @@ def _is_inside(path: Path, parent: Path) -> bool:
         return False
 
 
-def prepare_build(spec_path: str, dist_path: str, app_name: str) -> dict:
+def prepare_build(
+    spec_path: str,
+    dist_path: str,
+    app_name: str,
+    *,
+    environment_root: Path | None = None,
+    runtime: str = "cpu",
+) -> dict:
     spec_dir = Path(spec_path).resolve()
     project_root = spec_dir.parent
-    environment_root = project_root / "SEM_Grain_Tool_Portable" / "env"
+    if runtime not in {"cpu", "cuda"}:
+        raise ValueError(f"unsupported runtime: {runtime}")
+    environment_root = (
+        environment_root.resolve()
+        if environment_root is not None
+        else project_root / "SEM_Grain_Tool_Portable" / "env"
+    )
     expected_python = (environment_root / "python.exe").resolve()
     current_python = Path(sys.executable).resolve()
 
@@ -37,7 +50,7 @@ def prepare_build(spec_path: str, dist_path: str, app_name: str) -> dict:
         [
             str(current_python),
             str(project_root / "check_torch_env.py"),
-            "--require-cpu",
+            "--require-cuda" if runtime == "cuda" else "--require-cpu",
             "--expected-python",
             str(expected_python),
             "--output",
@@ -48,11 +61,13 @@ def prepare_build(spec_path: str, dist_path: str, app_name: str) -> dict:
     )
 
     datas = [
+        (str(project_root / "pyinstaller_packaging" / "web_static"), "web_static"),
         (str(project_root / "make_cellpose_overlay.py"), "."),
         (str(project_root / "analyze_particles.py"), "."),
         (str(project_root / "detect_scale_bar.py"), "."),
         (str(project_root / "generate_shapes_from_particles.py"), "."),
         (str(project_root / "generate_sintered_agglomerates.py"), "."),
+        (str(project_root / "device_probe.py"), "."),
         (str(project_root / "cellpose_cache" / "models" / "cpsam"), "cellpose_cache/models"),
         (str(environment_root / "Lib" / "tkinter"), "tkinter"),
         (str(environment_root / "Library" / "lib" / "tcl8.6"), "_tcl_data/tcl8.6"),
@@ -68,7 +83,7 @@ def prepare_build(spec_path: str, dist_path: str, app_name: str) -> dict:
     missing_paths = [path for path in required_paths if not path.exists()]
     if missing_paths:
         raise SystemExit(
-            "CPU build environment is incomplete:\n  "
+            f"{runtime.upper()} build environment is incomplete:\n  "
             + "\n  ".join(str(path) for path in missing_paths)
         )
 
@@ -84,15 +99,28 @@ def prepare_build(spec_path: str, dist_path: str, app_name: str) -> dict:
     ]
     for package in ("cellpose", "torch", "skimage", "cv2", "tifffile", "ezdxf"):
         package_datas, package_binaries, package_hiddenimports = collect_all(package)
+        if package == "torch":
+            excluded_suffixes = {".lib", ".exp", ".h", ".hpp", ".cuh", ".cpp", ".cc"}
+            package_datas = [
+                item for item in package_datas
+                if Path(item[0]).suffix.lower() not in excluded_suffixes
+                and "include" not in {part.lower() for part in Path(item[0]).parts}
+            ]
+            package_binaries = [
+                item for item in package_binaries
+                if Path(item[0]).suffix.lower() not in excluded_suffixes
+            ]
         datas += package_datas
         binaries += package_binaries
         hiddenimports += package_hiddenimports
     hiddenimports += collect_submodules("cellpose")
 
     return {
-        "script": str(spec_dir / "sem_grain_app_frozen.py"),
+        "script": str(spec_dir / "sem_grain_web_app.py"),
         "pathex": [str(spec_dir)],
         "datas": datas,
         "binaries": binaries,
         "hiddenimports": hiddenimports,
+        "runtime": runtime,
+        "environment_root": str(environment_root),
     }

@@ -24,7 +24,9 @@ def is_inside(path: Path, parent: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--require-cpu", action="store_true")
+    requirement = parser.add_mutually_exclusive_group()
+    requirement.add_argument("--require-cpu", action="store_true")
+    requirement.add_argument("--require-cuda", action="store_true")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--expected-python", type=Path)
     args = parser.parse_args()
@@ -36,8 +38,8 @@ def main() -> int:
     print(python_executable)
     print("has_torch", torch_origin is not None)
     if torch_origin is None:
-        if args.require_cpu:
-            print("CPU build stopped: torch is not installed", file=sys.stderr)
+        if args.require_cpu or args.require_cuda:
+            print("Build stopped: torch is not installed", file=sys.stderr)
             return 2
         return 0
 
@@ -58,12 +60,18 @@ def main() -> int:
             file=sys.stderr,
         )
         return 3
+    if args.require_cuda and torch_cuda is None:
+        print("GPU build stopped: CUDA-enabled torch is required", file=sys.stderr)
+        return 7
+    if args.require_cuda and not cuda_available:
+        print("GPU build stopped: CUDA runtime smoke check failed", file=sys.stderr)
+        return 8
 
     if args.expected_python is not None:
         expected_python = args.expected_python.resolve()
         if python_executable != expected_python:
             print(
-                "CPU build stopped: use the project portable Python environment\n"
+                "Build stopped: use the selected build Python environment\n"
                 f"  expected: {expected_python}\n"
                 f"  current:  {python_executable}",
                 file=sys.stderr,
@@ -71,13 +79,13 @@ def main() -> int:
             return 6
 
     cellpose_origin = module_origin("cellpose")
-    if args.require_cpu and (
+    if (args.require_cpu or args.require_cuda) and (
         not is_inside(torch_origin, environment_root)
         or cellpose_origin is None
         or not is_inside(cellpose_origin, environment_root)
     ):
         print(
-            "CPU build stopped: torch and cellpose must come from the selected Python environment",
+            "Build stopped: torch and cellpose must come from the selected Python environment",
             file=sys.stderr,
         )
         return 4
@@ -88,8 +96,8 @@ def main() -> int:
         cellpose_version = None
     print("cellpose", cellpose_version)
 
-    if args.require_cpu and cellpose_version is None:
-        print("CPU build stopped: cellpose is not installed", file=sys.stderr)
+    if (args.require_cpu or args.require_cuda) and cellpose_version is None:
+        print("Build stopped: cellpose is not installed", file=sys.stderr)
         return 5
 
     if args.output is not None:
@@ -100,6 +108,15 @@ def main() -> int:
             "torch_cuda": torch_cuda,
             "cuda_available": cuda_available,
             "cellpose_version": cellpose_version,
+            "device_name": torch.cuda.get_device_name(0) if cuda_available else None,
+            "device_capability": (
+                ".".join(str(part) for part in torch.cuda.get_device_capability(0))
+                if cuda_available else None
+            ),
+            "device_memory_mb": (
+                int(torch.cuda.get_device_properties(0).total_memory // (1024 * 1024))
+                if cuda_available else None
+            ),
         }
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(

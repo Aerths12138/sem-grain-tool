@@ -48,6 +48,20 @@ def main() -> int:
     initial_steps = [env_step]
 
     if env_step["status"] == "passed":
+        web_test_command = [
+            sys.executable,
+            str(PROJECT_ROOT / "pyinstaller_packaging" / "test_sem_grain_web_app.py"),
+        ]
+        web_test_step = process_step(
+            "web_application_tests", web_test_command, PROJECT_ROOT, 120
+        )
+        initial_steps.append(web_test_step)
+    else:
+        initial_steps.append(
+            skipped_step("web_application_tests", 120, "CPU environment gate failed")
+        )
+
+    if all(step["status"] == "passed" for step in initial_steps):
         build_command = [
             sys.executable, "-m", "PyInstaller", "--clean", "--noconfirm", str(SPEC_PATH),
         ]
@@ -58,7 +72,13 @@ def main() -> int:
         finish_process_validation(build_step)
         initial_steps.append(build_step)
     else:
-        initial_steps.append(skipped_step("pyinstaller_cpu_build", args.build_timeout, "CPU environment gate failed"))
+        initial_steps.append(
+            skipped_step(
+                "pyinstaller_cpu_build",
+                args.build_timeout,
+                "environment gate or web application tests failed",
+            )
+        )
 
     exit_code, final_record = run_acceptance(
         build_dir=args.build_dir, record_path=record_path, initial_steps=initial_steps,
