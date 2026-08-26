@@ -24,13 +24,14 @@ SEM Grain Tool 是一个面向 Windows 的本地网页应用，用于扫描电�
 Cellpose 和 CPSAM 模型，同时保留 CPU 执行能力。只打算使用 CPU 的电脑也可以下载
 体积更小的 `SEMGrainToolCPU.7z`。
 
-1. 下载同一版本的全部 `SEMGrainToolGPU.7z.*` 分卷。
+1. 下载所选版本的全部 `SEMGrainToolGPU.7z.*` 或 `SEMGrainToolCPU.7z.*` 分卷。
 2. 使用 7-Zip 从 `.7z.001` 开始解压，其他分卷必须放在同一目录。
 3. 保持解压后的目录结构不变，双击 `SEMGrainToolGPU.exe`。
 4. 程序会打开一个随机端口的 `http://127.0.0.1:端口/` 页面。
 5. 使用结束后点击页面右上角的“关闭软件”。
 
-CPU 包不分卷：解压 `SEMGrainToolCPU.7z` 后双击其中的 `SEMGrainTool.exe`。
+CPU 包的解压方式相同：下载全部 `SEMGrainToolCPU.7z.*`，从 `.001` 开始解压，
+然后双击其中的 `SEMGrainTool.exe`。
 
 > 不要只复制 EXE。`_internal` 目录包含模型、Python 运行时和依赖库，必须和 EXE
 > 放在一起。首次启动和首次识别通常会比后续操作慢。

@@ -5,10 +5,14 @@ Windows EXE 后，会启动仅监听 `127.0.0.1` 的服务并自动打开浏览�
 
 ## 下载选择
 
-- `SEMGrainToolGPU.7z.001`、`.002`……：推荐版本。必须下载全部分卷，使用
-  7-Zip 从 `.001` 开始解压。内置 CUDA 11.8，同时支持 CPU 自动回退。
-- `SEMGrainToolCPU.7z`：纯 CPU 版本，体积较小，不需要 NVIDIA 显卡或驱动。
+- `SEMGrainToolGPU.7z.001`、`.002`……：推荐版本。内置 CUDA 11.8，同时支持
+  CPU 自动回退。
+- `SEMGrainToolCPU.7z.001`、`.002`……：纯 CPU 版本，体积较小，不需要 NVIDIA
+  显卡或驱动。
 - `SHA256SUMS.txt`：所有发布文件的 SHA-256 校验值。
+
+两个版本都采用约 256 MiB 的分卷。必须下载所选版本的全部分卷并放在同一目录，
+然后使用 7-Zip 从 `.001` 开始解压。
 
 不要只复制解压目录中的 EXE；`_internal` 文件夹必须与 EXE 一起保留。
 
