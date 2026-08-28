@@ -76,6 +76,11 @@ GPU 加速仍依赖目标电脑上的 NVIDIA 驱动。4 GB 是当前的安全门
 - `analyze_particles.py`：颗粒测量和粒径分布
 - `generate_shapes_from_particles.py`：圆形重建与 DXF 导出
 - `pyinstaller_packaging/`：PyInstaller 构建、测试和验收工具
+- `docs/`：使用、环境和版本发布文档
+- `legacy/`：旧桌面界面及早期分割、几何实验脚本；不参与当前网页版构建
+
+仓库根目录只保留当前网页版运行、构建和常用 Cellpose 工具。历史实验没有删除，
+统一归档在 `legacy/`，方便需要时追溯。
 
 ## 从源码测试
 
